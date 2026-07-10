@@ -229,6 +229,45 @@ with st.expander("📊 Historical data sample & model performance"):
     st.plotly_chart(fig3, use_container_width=True)
     st.dataframe(hist.tail(200), use_container_width=True, height=250)
 
+# ---------- Profit calculator ----------
+st.markdown('<h3 class="tint-orange">🧮 Calculadora de ganancias</h3>', unsafe_allow_html=True)
+st.markdown("Introduce tus precios reales y calcula tu margen y ganancia estimada.")
+
+g1, g2, g3 = st.columns(3)
+buy_price = g1.number_input("Precio al que COMPRAS el producto ($)", min_value=0.01,
+                            value=float(p["cost"]), step=0.5)
+sell_price = g2.number_input("Precio al que VENDES ($)", min_value=0.01,
+                             value=float(p["base_price"]), step=0.5)
+competitor_input = g3.number_input("Precio del COMPETIDOR ($)", min_value=0.01,
+                                   value=float(comp_price), step=0.5)
+
+calc_context = dict(context, competitor_price=competitor_input)
+est_units = float(demand_curve(pipe, product, np.array([sell_price]), calc_context)
+                  ["predicted_units"].iloc[0])
+
+margin_unit = sell_price - buy_price
+margin_pct = margin_unit / sell_price * 100
+daily_profit = margin_unit * est_units
+vs_comp = (sell_price - competitor_input) / competitor_input * 100
+
+r1, r2, r3, r4 = st.columns(4)
+r1.metric("Margen por unidad", f"${margin_unit:,.2f}", f"{margin_pct:.1f}% del precio")
+r2.metric("Ventas diarias estimadas", f"{est_units:.0f} uds",
+          help="Predicción del modelo de demanda con tu precio y el del competidor")
+r3.metric("Ganancia diaria estimada", f"${daily_profit:,.0f}",
+          f"${daily_profit * 30:,.0f}/mes")
+r4.metric("Tu precio vs competidor", f"{vs_comp:+.1f}%",
+          "más barato ✅" if vs_comp < 0 else "más caro", delta_color="off")
+
+if margin_unit <= 0:
+    st.error("⚠️ Estás vendiendo por debajo de tu costo de compra: pierdes dinero en cada venta.")
+elif margin_pct < 15:
+    st.warning("Margen ajustado (<15%). Considera que aún faltan restar comisiones, "
+               "envío y publicidad.")
+else:
+    st.success(f"Margen bruto saludable. Ganancia mensual estimada: **${daily_profit * 30:,.0f}** "
+               f"(antes de comisiones y gastos operativos).")
+
 # ---------- Trend radar: Asia -> world (real Google Trends data) ----------
 st.markdown('<h3 class="tint-purple">🚀 Radar de tendencias: Asia → mundo</h3>', unsafe_allow_html=True)
 st.markdown("Productos en tendencia en Asia que aún no despegan en otros continentes. "
