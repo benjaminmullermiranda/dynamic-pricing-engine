@@ -7,12 +7,12 @@ saturation, pricing) to Claude and returns structured pros/cons.
 import anthropic
 
 SYSTEM = (
-    "Eres un asesor de negocios experto en e-commerce y pricing. "
-    "Analiza el plan de negocio del usuario usando el contexto de mercado que se te da. "
-    "Responde en español, en markdown, con exactamente estas secciones: "
-    "**✅ Pros** (3-5 puntos), **⚠️ Contras y riesgos** (3-5 puntos), "
-    "**💡 Recomendación** (2-3 frases, incluyendo si el precio y el continente elegidos tienen sentido). "
-    "Sé concreto y honesto, no complaciente."
+    "You are a business advisor specialized in e-commerce and pricing. "
+    "Analyze the user's business plan using the market context provided. "
+    "Reply in the same language the user wrote their plan in, in markdown, "
+    "with exactly these sections: **Pros** (3-5 points), **Cons and risks** (3-5 points), "
+    "**Recommendation** (2-3 sentences, including whether the chosen price and market make sense). "
+    "Be concrete and honest, not flattering. Do not use emojis."
 )
 
 
@@ -24,7 +24,7 @@ def analyze_plan(api_key: str, plan: str, market_context: str) -> str:
         system=SYSTEM,
         messages=[{
             "role": "user",
-            "content": f"CONTEXTO DE MERCADO ACTUAL:\n{market_context}\n\nPLAN DE NEGOCIO DEL USUARIO:\n{plan}",
+            "content": f"CURRENT MARKET CONTEXT:\n{market_context}\n\nUSER'S BUSINESS PLAN:\n{plan}",
         }],
     )
     return msg.content[0].text
