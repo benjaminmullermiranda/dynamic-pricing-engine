@@ -102,10 +102,20 @@ context = {
 # ---------------- Header ----------------
 st.title("Dynamic Pricing Engine")
 st.markdown(
-    "A machine learning model learns how demand reacts to price, then finds the price "
-    "that makes you the most money. Built as a **simulation lab**: the market has known "
-    "true elasticities, so the pipeline can be validated end-to-end."
+    "**Selling a product online? This tool answers three questions:** "
+    "where to sell it, at what price, and how much you would earn."
 )
+
+with st.container(border=True):
+    st.markdown(
+        "**How to use it (30 seconds):**\n\n"
+        "1. In the sidebar, pick a **continent** and a **product**.\n"
+        "2. **Tab 1** shows how competitive that market is.\n"
+        "3. **Tab 2** gives you the price that earns you the most money.\n"
+        "4. **Tab 3** calculates your monthly profit with your own buy/sell prices.\n"
+        "5. **Tab 4** shows products trending in Asia before they arrive in your market.\n\n"
+        "*Try it: select 'Wireless Earbuds' and 'Europe', then open Tab 2.*"
+    )
 
 tab_market, tab_price, tab_profit, tab_trends = st.tabs(
     ["1. Market", "2. Optimal price", "3. Your profit", "4. Trend radar"]
@@ -160,10 +170,21 @@ with tab_price:
               f"{(result['optimal_price'] / p['base_price'] - 1) * 100:+.1f}% vs base price")
     c2.metric("Expected daily sales", f"{result['expected_units']:.0f} units")
     c3.metric(f"Expected daily {objective.lower()}", f"${result[obj_col]:,.0f}")
-    c4.metric("Price elasticity", f"{elasticity:.2f}",
-              f"true: {p['elasticity']:.1f}", delta_color="off",
-              help="Elasticity recovered by the model vs the ground-truth value "
-                   "used by the simulator - this validates the pipeline.")
+    c4.metric("Price sensitivity", f"{abs(elasticity) * 10:.0f}% fewer sales",
+              "if you raise the price 10%", delta_color="off",
+              help=f"Price elasticity: {elasticity:.2f} (model) vs {p['elasticity']:.1f} "
+                   "(simulator ground truth). The model recovering the true value "
+                   "validates the pipeline.")
+
+    # actionable conclusion: optimal vs current base price
+    base_row = demand_curve(pipe, product, np.array([p["base_price"]]), context).iloc[0]
+    base_val = float(base_row[obj_col])
+    uplift = (result[obj_col] / base_val - 1) * 100 if base_val > 0 else 0
+    st.success(
+        f"**Recommendation: sell {product} at ${result['optimal_price']:.2f}.** "
+        f"You would earn about ${result[obj_col]:,.0f} per day in {objective.lower()} - "
+        f"{uplift:+.0f}% compared with the current base price of ${p['base_price']:.2f}."
+    )
 
     curve = result["curve"]
     col_a, col_b = st.columns(2)

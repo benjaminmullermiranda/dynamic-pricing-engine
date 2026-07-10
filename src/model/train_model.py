@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -32,9 +31,17 @@ def build_pipeline() -> Pipeline:
 
 
 def train(df: pd.DataFrame):
-    """Train and return (pipeline, metrics dict)."""
-    X, y = df[FEATURES], df[TARGET]
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
+    """Train and return (pipeline, metrics dict).
+
+    Uses a TEMPORAL split (last 20% of days as hold-out): random splits on
+    daily time series leak autocorrelated information between train and test
+    and inflate metrics.
+    """
+    df = df.sort_values("date")
+    cutoff = df["date"].quantile(0.8)
+    train_df, test_df = df[df["date"] <= cutoff], df[df["date"] > cutoff]
+    X_tr, y_tr = train_df[FEATURES], train_df[TARGET]
+    X_te, y_te = test_df[FEATURES], test_df[TARGET]
 
     pipe = build_pipeline()
     pipe.fit(X_tr, y_tr)
