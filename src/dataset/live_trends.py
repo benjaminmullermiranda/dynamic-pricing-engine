@@ -58,8 +58,8 @@ def current_interest_by_continent(product: str) -> pd.DataFrame:
     for cont, geo in CONTINENT_GEO.items():
         py.build_payload([kw], geo=geo, timeframe="today 3-m")
         df = py.interest_over_time()
-        rows.append({"continente": cont,
-                     "interes_actual": round(float(df[kw].mean()), 1) if not df.empty else 0.0})
+        rows.append({"continent": cont,
+                     "current_interest": round(float(df[kw].mean()), 1) if not df.empty else 0.0})
     return pd.DataFrame(rows)
 
 
@@ -74,12 +74,15 @@ def forecast_interest(series: pd.Series, months: int = 12) -> np.ndarray:
 
 
 def crossover_score(asia_now: float, target_now: float, target_series: pd.Series) -> dict:
-    """Probability that an Asia trend crosses over to a target continent,
-    based on the real gap and the target's recent momentum."""
+    """Heuristic crossover score (0-100): how likely an Asia trend is to
+    take off in a target continent, from the interest gap and recent momentum.
+
+    NOTE: this is a hand-tuned heuristic, not a calibrated probability.
+    """
     gap = max(asia_now - target_now, 0) / 100          # how far behind
     y = target_series.values[-6:]
     momentum = np.clip(np.polyfit(np.arange(len(y)), y, 1)[0] / 5, -1, 1)
-    prob = np.clip(0.35 + 0.4 * momentum + 0.2 * (1 - gap), 0.05, 0.97)
-    return {"probabilidad_%": round(float(prob) * 100),
-            "gap_interes": round(gap * 100),
+    score = np.clip(0.35 + 0.4 * momentum + 0.2 * (1 - gap), 0.05, 0.97)
+    return {"score": round(float(score) * 100),
+            "interest_gap": round(gap * 100),
             "momentum": round(float(momentum), 2)}

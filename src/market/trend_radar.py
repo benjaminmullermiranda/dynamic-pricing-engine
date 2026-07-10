@@ -55,7 +55,7 @@ def trend_timeline(product: str, months_history: int = 24, months_forecast: int 
     europe_obs = europe * rng.normal(1, 0.10, len(t))
 
     df = pd.DataFrame({"month": t, "asia": asia_obs.round(0), "europe": europe_obs.round(0)})
-    df["period"] = np.where(df["month"] <= 0, "histórico", "proyección")
+    df["period"] = np.where(df["month"] <= 0, "history", "forecast")
     return df
 
 
@@ -70,9 +70,9 @@ def crossover_probability(product: str) -> pd.DataFrame:
         prob = min(0.15 + 0.75 * maturity * r["factor"] + 0.05, 0.97)
         months_to_takeoff = max(p["lag"] + r["extra_lag"] - p["asia_start"] + 12, 1)
         rows.append({
-            "continente": cont,
-            "probabilidad_%": round(prob * 100, 0),
-            "despegue_estimado_meses": int(months_to_takeoff),
-            "beneficio_potencial_mes": round(p["peak_profit"] * r["factor"], -2),
+            "continent": cont,
+            "crossover_score": round(prob * 100, 0),
+            "est_months_to_takeoff": int(months_to_takeoff),
+            "potential_monthly_profit": round(p["peak_profit"] * r["factor"], -2),
         })
-    return pd.DataFrame(rows).sort_values("probabilidad_%", ascending=False)
+    return pd.DataFrame(rows).sort_values("crossover_score", ascending=False)

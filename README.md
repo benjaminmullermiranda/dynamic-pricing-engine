@@ -1,68 +1,60 @@
-# 💰 Dynamic Pricing Engine
+# Dynamic Pricing Engine
 
-An end-to-end machine learning system that learns **demand curves** from historical retail sales and recommends the **revenue- or profit-maximizing price** for each product under live market conditions (competitor price, promotions, seasonality).
+An end-to-end machine learning pricing system built as a **validated simulation lab**: a market simulator with known ground-truth price elasticities generates realistic sales data, an ML pipeline learns the demand curves, and an optimizer recommends the profit-maximizing price. Because the true elasticities are known, the whole pipeline can be tested end-to-end — the model must recover them.
 
-**🔗 Live demo:** _add your Streamlit Cloud URL here_
+**Live demo:** _add your Streamlit Cloud URL here_
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue) ![scikit-learn](https://img.shields.io/badge/scikit--learn-GBM-orange) ![Streamlit](https://img.shields.io/badge/Streamlit-app-red)
+![CI](https://github.com/benjaminmullermiranda/dynamic-pricing-engine/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/Python-3.11-blue) ![scikit-learn](https://img.shields.io/badge/scikit--learn-GBM-orange)
 
-## Why this project
+## What it does
 
-Most pricing decisions are made by intuition. This engine replaces that with a two-stage ML approach used in real e-commerce and retail:
+1. **Market simulator** — 2 years of daily sales for 6 products with constant-elasticity demand, seasonality, promotions and competitor cross-effects. Prices are randomized in the data (as in a pricing experiment), which makes the demand estimate causally valid.
+2. **Demand model** — Gradient Boosting pipeline (`ColumnTransformer` + `GradientBoostingRegressor`) predicting daily units sold.
+3. **Price optimizer** — grid search over the learned demand curve, restricted to the support of the training data (tree models do not extrapolate).
+4. **Validation** — pytest suite asserts the model recovers each product's true elasticity and that optimal prices follow economic logic (elastic products priced lower). Runs in CI on every push.
+5. **Trend radar** — real Google Trends data comparing Asia vs other continents, with a momentum projection and an honest, clearly-labeled heuristic crossover score.
+6. **AI advisor** — Claude analyzes a user's business plan against the market context (pros / cons / recommendation).
 
-1. **Demand modeling** — a Gradient Boosting regressor learns `units_sold = f(price, competitor_price, promotion, seasonality)` from 2 years of daily sales across 6 products.
-2. **Price optimization** — a grid-search optimizer sweeps candidate prices through the learned demand model and picks the price that maximizes expected revenue or profit.
+## Data honesty
 
-It also recovers each product's **price elasticity** numerically from the model, which can be validated against the known ground-truth elasticities of the simulated market.
+Sales, prices and market stats are **simulated** (labeled in the UI). This is deliberate: it provides ground truth to validate the ML pipeline against, which real sales data never offers. Trend data is **real** (Google Trends, refreshed daily, with graceful fallback when rate-limited).
 
 ## Project structure
 
 ```
-dynamic-pricing-engine/
 ├── app.py                          <- Streamlit app (entry point)
-├── config.ini                      <- Project configuration
-├── requirements.txt
-├── data/                           <- Generated data (git-ignored)
-├── evaluation/
-│   └── evaluate_model.py           <- Per-product metrics + elasticity recovery
-├── notebooks/                      <- EDA / experiments
+├── .github/workflows/ci.yml       <- Lint + tests on every push
+├── tests/                          <- Pipeline & market logic tests
+├── evaluation/evaluate_model.py    <- Per-product metrics + elasticity recovery
 └── src/
     ├── dataset/
-    │   └── generate_dataset.py     <- Synthetic market simulator
-    ├── model/
-    │   └── train_model.py          <- Demand model training pipeline
-    └── optimization/
-        └── price_optimizer.py      <- Demand curves, optimizer, elasticity
+    │   ├── generate_dataset.py     <- Market simulator (ground truth)
+    │   └── live_trends.py          <- Google Trends client + forecasts
+    ├── model/train_model.py        <- Demand model pipeline
+    ├── optimization/price_optimizer.py
+    ├── market/                     <- Market stats, trend diffusion model
+    └── advisor/business_advisor.py <- Claude-based plan analysis
 ```
-
-## Results
-
-Run `python -m evaluation.evaluate_model` to get hold-out metrics (MAE, R², MAPE) per product, plus a comparison of **model-recovered elasticities vs. the ground-truth elasticities** of the simulator — evidence the model learned real price-demand structure rather than noise. Paste your actual numbers here after running it.
 
 ## Run locally
 
 ```bash
-git clone https://github.com/<your-user>/dynamic-pricing-engine.git
-cd dynamic-pricing-engine
-python -m venv venv && venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app.py     # app
+pytest tests -v          # tests
+python -m evaluation.evaluate_model   # metrics report
 ```
 
-Evaluate the model from the CLI:
+The AI advisor needs an Anthropic API key (`.streamlit/secrets.toml` → `ANTHROPIC_API_KEY = "sk-ant-..."`). See DEPLOYMENT.md.
 
-```bash
-python -m evaluation.evaluate_model
-```
+## Known limitations / roadmap
 
-## Tech stack
-
-Python, pandas, NumPy, scikit-learn (ColumnTransformer + GradientBoostingRegressor pipeline), Plotly, Streamlit. Structure adapted from [ghimiresunil/Machine-Learning-Project-Structure](https://github.com/ghimiresunil/Machine-Learning-Project-Structure).
+- Trend crossover score is a heuristic, not a calibrated probability.
+- Point estimates only — next step: quantile regression for price-recommendation intervals.
+- Google Trends samples one representative country per continent (rate limits); a scheduled GitHub Action committing daily snapshots would make it robust.
 
 ## Author
 
 **Benjamin Muller** — Business graduate specializing in Data Science / ML Engineering.
 
-## License
-
-MIT
+MIT License. Structure adapted from [ghimiresunil/Machine-Learning-Project-Structure](https://github.com/ghimiresunil/Machine-Learning-Project-Structure).
