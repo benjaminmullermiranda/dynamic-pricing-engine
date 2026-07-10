@@ -14,7 +14,7 @@ An end-to-end machine learning pricing system built as a **validated simulation 
 4. **Validation** — pytest suite asserts the model recovers each product's true elasticity and that optimal prices follow economic logic (elastic products priced lower). Runs in CI on every push.
 5. **Trend radar** — real Google Trends data comparing Asia vs other continents, with a momentum projection and an honest, clearly-labeled heuristic crossover score.
 
-## Data honesty
+## Data
 
 Sales, prices and market stats are **simulated** (labeled in the UI). This is deliberate: it provides ground truth to validate the ML pipeline against, which real sales data never offers. Trend data is **real** (Google Trends, refreshed daily, with graceful fallback when rate-limited).
 
