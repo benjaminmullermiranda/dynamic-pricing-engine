@@ -57,10 +57,16 @@ def train(df: pd.DataFrame):
     return pipe, metrics
 
 
+ARTIFACT_PATH = "src/weights/demand_model.joblib"
+
+
 if __name__ == "__main__":
+    import os
+
     from src.dataset.generate_dataset import generate_dataset
 
     df = generate_dataset()
     pipe, metrics = train(df)
-    joblib.dump(pipe, "src/weights/demand_model.joblib")
-    print("Saved model. Metrics:", metrics)
+    os.makedirs(os.path.dirname(ARTIFACT_PATH), exist_ok=True)
+    joblib.dump({"pipeline": pipe, "metrics": metrics}, ARTIFACT_PATH)
+    print(f"Saved artifact to {ARTIFACT_PATH}. Metrics:", metrics)

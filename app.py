@@ -59,9 +59,22 @@ SIM_BADGE = '<span class="badge-sim">SIMULATED DATA</span>'
 LIVE_BADGE = '<span class="badge-live">LIVE DATA</span>'
 
 
-@st.cache_resource(show_spinner="Training the demand model (first load only)...")
+@st.cache_resource(show_spinner="Loading the demand model...")
 def load_model():
+    """Load the pre-trained artifact if available; otherwise train from scratch."""
+    import os
+
+    import joblib
+
+    from src.model.train_model import ARTIFACT_PATH
+
     df = generate_dataset()
+    if os.path.exists(ARTIFACT_PATH):
+        try:
+            artifact = joblib.load(ARTIFACT_PATH)
+            return df, artifact["pipeline"], artifact["metrics"]
+        except Exception:
+            pass  # version mismatch etc. -> retrain
     pipe, metrics = train(df)
     return df, pipe, metrics
 
@@ -127,8 +140,20 @@ with tab_market:
 
     market = market_summary(product, p["base_price"], continent)
 
-    map_col, info_col = st.columns([1.2, 1])
-    with map_col:
+    m1, m2 = st.columns(2)
+    m1.metric("Average market price", f"${market['avg_market_price']:.2f}")
+    m2.metric("Active sellers", f"{market['sellers']:,}")
+
+    sat_labels = {"Saturado": "Saturated - many sellers competing",
+                  "Competencia moderada": "Moderate competition",
+                  "Oportunidad": "Open opportunity - few sellers"}
+    st.markdown(f"**Market saturation:** "
+                f"{sat_labels.get(market['saturation_level'], market['saturation_level'])}")
+    st.progress(market["saturation_score"])
+    st.caption("The fuller the bar, the harder it is to stand out in this market. "
+               "Seller counts and market prices are simulated for demonstration.")
+
+    with st.expander("Show market map"):
         fig_map = go.Figure(go.Choropleth(
             locations=CONTINENTS[continent]["countries"],
             z=[1] * len(CONTINENTS[continent]["countries"]),
@@ -140,20 +165,6 @@ with tab_market:
                             projection_type="natural earth")
         fig_map.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0))
         st.plotly_chart(fig_map, use_container_width=True)
-
-    with info_col:
-        m1, m2 = st.columns(2)
-        m1.metric("Average market price", f"${market['avg_market_price']:.2f}")
-        m2.metric("Active sellers", f"{market['sellers']:,}")
-
-        sat_labels = {"Saturado": "Saturated - many sellers competing",
-                      "Competencia moderada": "Moderate competition",
-                      "Oportunidad": "Open opportunity - few sellers"}
-        st.markdown(f"**Market saturation:** "
-                    f"{sat_labels.get(market['saturation_level'], market['saturation_level'])}")
-        st.progress(market["saturation_score"])
-        st.caption("The fuller the bar, the harder it is to stand out in this market. "
-                   "Seller counts and market prices are simulated for demonstration.")
 
 # ---------------- Tab 2: Optimal price ----------------
 with tab_price:

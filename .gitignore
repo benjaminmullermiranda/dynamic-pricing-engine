@@ -6,6 +6,5 @@ venv*/
 .venv/
 data/raw/*.csv
 data/processed/*.csv
-src/weights/*.joblib
 .ipynb_checkpoints/
 .DS_Store
