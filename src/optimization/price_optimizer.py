@@ -49,11 +49,17 @@ def optimize_price(pipe, product: str, price_range: tuple, context: dict,
 
 
 def estimate_elasticity(pipe, product: str, base_price: float, context: dict) -> float:
-    """Numerical price elasticity of demand around base_price (+/-5%)."""
-    prices = np.array([base_price * 0.95, base_price * 1.05])
+    """Price elasticity of demand via log-log regression over the demand curve.
+
+    A two-point finite difference is noisy on tree models (step functions);
+    fitting log(demand) ~ log(price) across the +/-20% price band averages
+    over many tree splits and matches the simulator's constant-elasticity
+    ground truth directly (the slope IS the elasticity).
+    """
+    prices = np.linspace(base_price * 0.80, base_price * 1.20, 41)
     d = demand_curve(pipe, product, prices, context)["predicted_units"].values
-    if d.mean() <= 0:
+    mask = d > 0
+    if mask.sum() < 3:
         return 0.0
-    pct_dq = (d[1] - d[0]) / d.mean()
-    pct_dp = (prices[1] - prices[0]) / prices.mean()
-    return round(float(pct_dq / pct_dp), 2)
+    slope = np.polyfit(np.log(prices[mask]), np.log(d[mask]), 1)[0]
+    return round(float(slope), 2)
