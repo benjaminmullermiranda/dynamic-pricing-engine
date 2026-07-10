@@ -27,19 +27,6 @@ git push -u origin main
 
 You'll get a permanent URL like `https://<your-username>-dynamic-pricing-engine.streamlit.app`.
 
-## 2b. Configurar el Asesor IA (API key)
-
-El asesor de planes de negocio usa la API de Anthropic (Claude):
-
-1. Crea una API key en https://console.anthropic.com (Settings → API Keys). Requiere añadir crédito (con $5 sobra para una demo; cada análisis cuesta ~$0.001-0.01 con Haiku).
-2. En Streamlit Cloud: tu app → **Settings → Secrets** y pega:
-
-```toml
-ANTHROPIC_API_KEY = "sk-ant-..."
-```
-
-3. Para probar en local, crea el archivo `.streamlit/secrets.toml` con esa misma línea (ya está git-ignorado, nunca lo subas a GitHub).
-
 ## 3. Add to LinkedIn
 
 - Paste the live URL into the README (`Live demo` line), commit and push.

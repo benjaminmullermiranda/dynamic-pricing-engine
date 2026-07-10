@@ -13,7 +13,6 @@ An end-to-end machine learning pricing system built as a **validated simulation 
 3. **Price optimizer** — grid search over the learned demand curve, restricted to the support of the training data (tree models do not extrapolate).
 4. **Validation** — pytest suite asserts the model recovers each product's true elasticity and that optimal prices follow economic logic (elastic products priced lower). Runs in CI on every push.
 5. **Trend radar** — real Google Trends data comparing Asia vs other continents, with a momentum projection and an honest, clearly-labeled heuristic crossover score.
-6. **AI advisor** — Claude analyzes a user's business plan against the market context (pros / cons / recommendation).
 
 ## Data honesty
 
@@ -32,8 +31,7 @@ Sales, prices and market stats are **simulated** (labeled in the UI). This is de
     │   └── live_trends.py          <- Google Trends client + forecasts
     ├── model/train_model.py        <- Demand model pipeline
     ├── optimization/price_optimizer.py
-    ├── market/                     <- Market stats, trend diffusion model
-    └── advisor/business_advisor.py <- Claude-based plan analysis
+    └── market/                     <- Market stats, trend diffusion model
 ```
 
 ## Run locally
@@ -44,8 +42,6 @@ streamlit run app.py     # app
 pytest tests -v          # tests
 python -m evaluation.evaluate_model   # metrics report
 ```
-
-The AI advisor needs an Anthropic API key (`.streamlit/secrets.toml` → `ANTHROPIC_API_KEY = "sk-ant-..."`). See DEPLOYMENT.md.
 
 ## Known limitations / roadmap
 

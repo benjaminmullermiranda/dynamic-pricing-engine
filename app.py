@@ -107,8 +107,8 @@ st.markdown(
     "true elasticities, so the pipeline can be validated end-to-end."
 )
 
-tab_market, tab_price, tab_profit, tab_trends, tab_ai = st.tabs(
-    ["1. Market", "2. Optimal price", "3. Your profit", "4. Trend radar", "5. AI advisor"]
+tab_market, tab_price, tab_profit, tab_trends = st.tabs(
+    ["1. Market", "2. Optimal price", "3. Your profit", "4. Trend radar"]
 )
 
 # ---------------- Tab 1: Market ----------------
@@ -334,52 +334,6 @@ with tab_trends:
         with t2:
             st.dataframe(crossover_probability(trend_product), use_container_width=True,
                          hide_index=True, height=260)
-
-# ---------------- Tab 5: AI advisor ----------------
-with tab_ai:
-    st.markdown("### AI business advisor")
-    st.markdown("Describe your business plan and get the pros, cons and a recommendation, "
-                "grounded in the market data on this page.")
-
-    def get_api_key() -> str:
-        try:
-            return st.secrets.get("ANTHROPIC_API_KEY", "")
-        except Exception:
-            return ""
-
-    api_key = get_api_key()
-    if not api_key:
-        api_key = st.text_input("Anthropic API key (not stored)", type="password",
-                                help="Get one at console.anthropic.com. On Streamlit Cloud, "
-                                     "set it once in Settings > Secrets as ANTHROPIC_API_KEY.")
-
-    plan_text = st.text_area(
-        "Your business plan",
-        placeholder="Example: I want to import air fryers from China and sell them in Spain "
-                    "for 65 EUR on Amazon FBA, starting with 5,000 EUR...",
-        height=140,
-    )
-
-    if st.button("Analyze my plan", type="primary"):
-        market = market_summary(product, p["base_price"], continent)
-        if not api_key:
-            st.error("Please enter an API key (or set ANTHROPIC_API_KEY in Streamlit Secrets).")
-        elif not plan_text.strip():
-            st.warning("Please write your plan first.")
-        else:
-            from src.advisor.business_advisor import analyze_plan
-
-            market_ctx = (
-                f"Selected continent: {continent}. Product analyzed: {product}. "
-                f"Average market price (simulated): ${market['avg_market_price']}. "
-                f"Market saturation (simulated): {market['saturation_level']} "
-                f"({market['saturation_score']})."
-            )
-            with st.spinner("Analyzing your plan..."):
-                try:
-                    st.markdown(analyze_plan(api_key, plan_text, market_ctx))
-                except Exception as e:
-                    st.error(f"The AI request failed: {e}")
 
 st.caption("Built by Benjamin Muller. Demand modeling (Gradient Boosting) + price optimization. "
            "Live trends: Google Trends. Sales and market data: simulated with known "
