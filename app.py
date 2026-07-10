@@ -13,6 +13,11 @@ from src.dataset.generate_dataset import generate_dataset, PRODUCTS
 from src.model.train_model import train
 from src.optimization.price_optimizer import demand_curve, optimize_price, estimate_elasticity
 from src.market.market_data import CONTINENTS, market_summary, competitiveness
+from src.market.trend_radar import TRENDING, trend_timeline, crossover_probability
+from src.dataset.live_trends import (
+    TREND_KEYWORDS, interest_timeline, current_interest_by_continent,
+    forecast_interest, crossover_score,
+)
 
 st.set_page_config(page_title="Dynamic Pricing Engine", page_icon="💰", layout="wide")
 
@@ -224,5 +229,117 @@ with st.expander("📊 Historical data sample & model performance"):
     st.plotly_chart(fig3, use_container_width=True)
     st.dataframe(hist.tail(200), use_container_width=True, height=250)
 
-st.caption("Built by Benjamin Muller · Demand modeling (Gradient Boosting) + "
-           "price optimization · Synthetic data generated with realistic elasticities.")
+# ---------- Trend radar: Asia -> world (real Google Trends data) ----------
+st.markdown('<h3 class="tint-purple">🚀 Radar de tendencias: Asia → mundo</h3>', unsafe_allow_html=True)
+st.markdown("Productos en tendencia en Asia que aún no despegan en otros continentes. "
+            "**Datos reales de Google Trends** (actualizados cada 24h) + proyección a 12 meses.")
+
+trend_product = st.selectbox("Producto en tendencia", list(TRENDING.keys()))
+
+
+@st.cache_data(ttl=86400, show_spinner="Consultando Google Trends...")
+def load_live_trends(product_name):
+    tl = interest_timeline(product_name, ("Asia", "Europe"))
+    snapshot = current_interest_by_continent(product_name)
+    return tl, snapshot
+
+
+live_data_ok = True
+try:
+    timeline, snapshot = load_live_trends(trend_product)
+except Exception:
+    live_data_ok = False
+    st.warning("⚠️ Google Trends no disponible ahora mismo (límite de peticiones). "
+               "Mostrando simulación del modelo de difusión.")
+
+t1, t2 = st.columns([1.4, 1])
+
+if live_data_ok:
+    fc_eu = forecast_interest(timeline["Europe"])
+    fc_asia = forecast_interest(timeline["Asia"])
+    future_dates = pd.date_range(timeline["date"].iloc[-1], periods=13, freq="MS")[1:]
+
+    with t1:
+        fig_t = go.Figure()
+        fig_t.add_scatter(x=timeline["date"], y=timeline["Asia"], name="Asia (real)",
+                          line=dict(color=BRAND["red"], width=3))
+        fig_t.add_scatter(x=timeline["date"], y=timeline["Europe"], name="Europa (real)",
+                          line=dict(color=BRAND["blue"], width=3))
+        fig_t.add_scatter(x=future_dates, y=fc_asia, name="Asia (proyección)",
+                          line=dict(color=BRAND["red"], width=2, dash="dash"))
+        fig_t.add_scatter(x=future_dates, y=fc_eu, name="Europa (proyección)",
+                          line=dict(color=BRAND["blue"], width=2, dash="dash"))
+        fig_t.update_layout(title=f"Interés de búsqueda real — {TREND_KEYWORDS[trend_product]}",
+                            yaxis_title="Google Trends (0-100)", height=420)
+        st.plotly_chart(fig_t, use_container_width=True)
+
+    with t2:
+        asia_now = float(snapshot.loc[snapshot["continente"] == "Asia", "interes_actual"].iloc[0])
+        rows = []
+        for _, r in snapshot[snapshot["continente"] != "Asia"].iterrows():
+            # momentum proxy: Europe series (only 2 timelines fetched to respect rate limits)
+            sc = crossover_score(asia_now, r["interes_actual"], timeline["Europe"])
+            rows.append({"Continente": r["continente"],
+                         "Interés actual": r["interes_actual"],
+                         "Prob. de tendencia (%)": sc["probabilidad_%"]})
+        prob_df = pd.DataFrame(rows).sort_values("Prob. de tendencia (%)", ascending=False)
+        st.markdown(f"**Interés actual en Asia: {asia_now:.0f}/100**")
+        st.dataframe(prob_df, use_container_width=True, hide_index=True, height=260)
+        st.caption("Probabilidad estimada a partir del gap de interés vs Asia "
+                   "y el momentum reciente de cada mercado.")
+else:
+    sim = trend_timeline(trend_product)
+    with t1:
+        fig_t = go.Figure()
+        for region, color in [("asia", BRAND["red"]), ("europe", BRAND["blue"])]:
+            h = sim[sim["period"] == "histórico"]
+            f = sim[sim["period"] == "proyección"]
+            fig_t.add_scatter(x=h["month"], y=h[region], name=f"{region.title()} (histórico)",
+                              line=dict(color=color, width=3))
+            fig_t.add_scatter(x=f["month"], y=f[region], name=f"{region.title()} (proyección)",
+                              line=dict(color=color, width=2, dash="dash"))
+        fig_t.update_layout(title="Beneficio mensual simulado (difusión logística)",
+                            xaxis_title="Meses (0 = hoy)", yaxis_title="$/mes", height=420)
+        st.plotly_chart(fig_t, use_container_width=True)
+    with t2:
+        st.dataframe(crossover_probability(trend_product), use_container_width=True,
+                     hide_index=True, height=260)
+
+# ---------- AI business advisor ----------
+st.markdown('<h3 class="tint-orange">🤖 Asesor IA: analiza tu plan de negocio</h3>', unsafe_allow_html=True)
+st.markdown("Cuéntale tu plan al asesor y recibirás **pros, contras y una recomendación** "
+            "basada en el contexto de mercado actual de esta página.")
+
+plan_text = st.text_area(
+    "Tu plan de negocio",
+    placeholder="Ej: Quiero importar air fryers desde China y venderlas en España por 65€ "
+                "a través de Amazon FBA, con una inversión inicial de 5.000€...",
+    height=140,
+)
+
+if st.button("Analizar mi plan", type="primary"):
+    api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        st.error("Falta configurar ANTHROPIC_API_KEY en los Secrets de Streamlit Cloud "
+                 "(Settings → Secrets). Ver DEPLOYMENT.md.")
+    elif not plan_text.strip():
+        st.warning("Escribe tu plan primero.")
+    else:
+        from src.advisor.business_advisor import analyze_plan
+
+        market_ctx = (
+            f"Continente seleccionado: {continent}. Producto analizado: {product}. "
+            f"Precio medio de mercado: ${market['avg_market_price']}. "
+            f"Precio del usuario: ${your_price}. "
+            f"Saturación: {market['saturation_level']} ({market['saturation_score']}). "
+            f"Veredicto de competitividad: {comp['verdict']}. "
+            f"Producto en tendencia consultado: {trend_product}."
+        )
+        with st.spinner("Analizando tu plan..."):
+            try:
+                st.markdown(analyze_plan(api_key, plan_text, market_ctx))
+            except Exception as e:
+                st.error(f"Error llamando a la API: {e}")
+
+st.caption("Built by Benjamin Muller · Demand modeling (Gradient Boosting) + price optimization · "
+           "Tendencias en vivo: Google Trends · Ventas y elasticidades: simuladas.")
