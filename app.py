@@ -12,8 +12,62 @@ import streamlit as st
 from src.dataset.generate_dataset import generate_dataset, PRODUCTS
 from src.model.train_model import train
 from src.optimization.price_optimizer import demand_curve, optimize_price, estimate_elasticity
+from src.market.market_data import CONTINENTS, market_summary, competitiveness
 
 st.set_page_config(page_title="Dynamic Pricing Engine", page_icon="💰", layout="wide")
+
+# ---------- Playful Color design system ----------
+BRAND = {
+    "green": "#0acf83", "orange": "#f24e1e", "purple": "#a259ff",
+    "red": "#ff7262", "blue": "#1abcfe",
+}
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"], .stApp { font-family: 'Inter', sans-serif; color: #0f0f14; }
+
+h1, h2, h3 { font-weight: 700 !important; letter-spacing: -0.02em; }
+
+/* metric cards */
+[data-testid="stMetric"] {
+    background: #ffffff;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 20px 24px;
+    transition: box-shadow .2s ease;
+}
+[data-testid="stMetric"]:hover { box-shadow: 0 8px 24px rgba(15,15,20,0.08); }
+[data-testid="stMetricLabel"] { color: #6e6e78; font-weight: 500; }
+
+/* sidebar */
+[data-testid="stSidebar"] {
+    background: #fafafa;
+    border-right: 1px solid #e5e5ea;
+}
+
+/* buttons & pills */
+.stButton > button, .stDownloadButton > button {
+    border-radius: 8px; font-weight: 500; padding: 10px 18px;
+}
+
+/* expander as card */
+[data-testid="stExpander"] {
+    border: 1px solid #e5e5ea; border-radius: 12px; background: #ffffff;
+}
+
+/* section tint bands */
+.tint-purple { background: rgba(162,89,255,.10); border-radius: 16px; padding: 6px 16px; display: inline-block; }
+.tint-green  { background: rgba(10,207,131,.10); border-radius: 16px; padding: 6px 16px; display: inline-block; }
+.tint-blue   { background: rgba(26,188,254,.10); border-radius: 16px; padding: 6px 16px; display: inline-block; }
+.tint-orange { background: rgba(242,78,30,.10);  border-radius: 16px; padding: 6px 16px; display: inline-block; }
+
+/* progress bar in brand green */
+.stProgress > div > div > div > div { background-color: #0acf83; border-radius: 999px; }
+.stProgress > div > div > div { border-radius: 999px; }
+</style>
+""", unsafe_allow_html=True)
 
 
 @st.cache_resource(show_spinner="Training demand model (first load only)...")
@@ -27,6 +81,7 @@ df, pipe, metrics = load_model()
 
 # ---------- Sidebar: market context ----------
 st.sidebar.title("⚙️ Market Context")
+continent = st.sidebar.selectbox("🌍 Continente", list(CONTINENTS.keys()), index=2)
 product = st.sidebar.selectbox("Product", list(PRODUCTS.keys()))
 p = PRODUCTS[product]
 
@@ -78,8 +133,8 @@ col_a, col_b = st.columns(2)
 with col_a:
     fig = go.Figure()
     fig.add_scatter(x=curve["price"], y=curve["predicted_units"], name="Predicted demand",
-                    line=dict(color="#4C9BE8", width=3))
-    fig.add_vline(x=result["optimal_price"], line_dash="dash", line_color="#E8734C",
+                    line=dict(color=BRAND["blue"], width=3))
+    fig.add_vline(x=result["optimal_price"], line_dash="dash", line_color=BRAND["orange"],
                   annotation_text="optimal")
     fig.update_layout(title="Demand curve (model)", xaxis_title="Price ($)",
                       yaxis_title="Units / day", height=400)
@@ -88,10 +143,10 @@ with col_a:
 with col_b:
     fig2 = go.Figure()
     fig2.add_scatter(x=curve["price"], y=curve["expected_revenue"], name="Revenue",
-                     line=dict(color="#57B894", width=3))
+                     line=dict(color=BRAND["green"], width=3))
     fig2.add_scatter(x=curve["price"], y=curve["expected_profit"], name="Profit",
-                     line=dict(color="#B857A8", width=3))
-    fig2.add_vline(x=result["optimal_price"], line_dash="dash", line_color="#E8734C")
+                     line=dict(color=BRAND["purple"], width=3))
+    fig2.add_vline(x=result["optimal_price"], line_dash="dash", line_color=BRAND["orange"])
     fig2.add_vline(x=p["cost"], line_dash="dot", line_color="gray",
                    annotation_text="unit cost")
     fig2.update_layout(title="Revenue & profit vs price", xaxis_title="Price ($)",
@@ -99,7 +154,7 @@ with col_b:
     st.plotly_chart(fig2, use_container_width=True)
 
 # ---------- What-if ----------
-st.subheader("🎯 What-if: test your own price")
+st.markdown('<h3 class="tint-green">🎯 What-if: prueba tu propio precio</h3>', unsafe_allow_html=True)
 your_price = st.slider("Your price ($)", float(round(price_range[0])),
                        float(round(price_range[1])), float(p["base_price"]))
 your = demand_curve(pipe, product, np.array([your_price]), context).iloc[0]
@@ -113,6 +168,47 @@ w2.metric(f"{objective} at your price", f"${your_val:,.0f}")
 w3.metric("Left on the table vs optimal", f"${gap:,.0f}",
           f"{-gap / max(opt_val, 1) * 100:.1f}%", delta_color="inverse")
 
+# ---------- Market analysis by continent ----------
+st.markdown(f'<h3 class="tint-blue">🌍 Análisis de mercado — {continent}</h3>', unsafe_allow_html=True)
+
+market = market_summary(product, p["base_price"], continent)
+comp = competitiveness(your_price, market["avg_market_price"], market["saturation_score"])
+
+map_col, info_col = st.columns([1.2, 1])
+
+with map_col:
+    fig_map = go.Figure(go.Choropleth(
+        locations=CONTINENTS[continent]["countries"],
+        z=[1] * len(CONTINENTS[continent]["countries"]),
+        colorscale=[[0, BRAND["purple"]], [1, BRAND["purple"]]],
+        showscale=False,
+        marker_line_color="white", marker_line_width=0.5,
+    ))
+    fig_map.update_geos(
+        showcountries=True, countrycolor="#666",
+        showland=True, landcolor="#e8e8e8",
+        fitbounds="locations", projection_type="natural earth",
+    )
+    fig_map.update_layout(title=f"Mercado activo: {continent}", height=380,
+                          margin=dict(l=0, r=0, t=40, b=0))
+    st.plotly_chart(fig_map, use_container_width=True)
+
+with info_col:
+    m1, m2 = st.columns(2)
+    m1.metric("Precio medio de mercado", f"${market['avg_market_price']:.2f}")
+    m2.metric("Tu precio", f"${your_price:.2f}", f"{comp['diff_pct']:+.1f}% vs mercado",
+              delta_color="inverse")
+    m3, m4 = st.columns(2)
+    m3.metric("Vendedores activos", f"{market['sellers']:,}")
+    m4.metric("Índice de demanda", f"{market['demand_index']}/100")
+
+    st.markdown(f"**Saturación del mercado:** {market['saturation_emoji']} "
+                f"{market['saturation_level']} ({market['saturation_score'] * 100:.0f}%)")
+    st.progress(market["saturation_score"])
+
+    st.markdown(f"**¿Eres competitivo?** {comp['emoji']} **{comp['verdict']}**")
+    st.caption(comp["note"])
+
 # ---------- Data & model ----------
 with st.expander("📊 Historical data sample & model performance"):
     st.markdown(f"**Model (hold-out test):** MAE = {metrics['MAE']} units · "
@@ -121,7 +217,7 @@ with st.expander("📊 Historical data sample & model performance"):
     hist = df[df["product"] == product]
     fig3 = go.Figure()
     fig3.add_scatter(x=hist["price"], y=hist["units_sold"], mode="markers",
-                     marker=dict(size=4, opacity=0.35, color="#4C9BE8"),
+                     marker=dict(size=4, opacity=0.35, color=BRAND["red"]),
                      name="Historical sales")
     fig3.update_layout(title=f"Observed price vs units sold — {product}",
                        xaxis_title="Price ($)", yaxis_title="Units sold", height=380)
