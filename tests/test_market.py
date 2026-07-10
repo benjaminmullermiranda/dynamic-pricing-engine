@@ -3,7 +3,7 @@
 import pandas as pd
 
 from src.market.market_data import CONTINENTS, market_summary, competitiveness
-from src.market.trend_radar import TRENDING, trend_timeline, crossover_probability
+from src.market.trend_radar import trend_timeline, crossover_probability
 from src.dataset.live_trends import forecast_interest, crossover_score
 
 

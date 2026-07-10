@@ -267,11 +267,20 @@ with tab_profit:
 
     r1, r2, r3, r4 = st.columns(4)
     r1.metric("Profit per unit", f"${margin_unit:,.2f}", f"{margin_pct:.1f}% margin")
-    r2.metric("Estimated daily sales", f"{est_units:.0f} units")
+    r2.metric("Estimated daily sales", f"{est_units:.0f} units",
+              help="Where does this number come from? The model studied 2 years of "
+                   "daily sales and learned a simple pattern: the higher the price, "
+                   "the fewer people buy. This is how many units it expects to sell "
+                   "per day at YOUR price, considering the competitor's price too.")
     r3.metric("Estimated monthly profit", f"${daily_profit * 30:,.0f}",
               f"${daily_profit:,.0f} per day")
     r4.metric("Your price vs competitor", f"{vs_comp:+.1f}%",
               "cheaper" if vs_comp < 0 else "more expensive", delta_color="off")
+
+    st.caption(f"How we estimate your sales: the model learned from 2 years of sales "
+               f"history that demand for {product} drops as the price goes up. "
+               f"At ${sell_price:.2f}, it expects about {est_units:.0f} sales per day. "
+               f"Try changing your price above and watch this number react.")
 
     if margin_unit <= 0:
         st.error("You are selling below your purchase cost: you lose money on every sale.")
